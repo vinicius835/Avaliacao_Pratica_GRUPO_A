@@ -145,19 +145,19 @@ void loop() {
     byte desvio_UL2 = (array_distancia_UL2[1] - array_distancia_UL2[0])/tempo_total_UL2;
 
     Serial.println("ULTRA SONICO 1");
-    Serial.println(distancia_UL1);
+    Serial.println(desvio_UL1);
 
     Serial.println("ULTRA SONICO 2");
-    Serial.println(distancia_UL2);
+    Serial.println(desvio_UL2);
 
-    if(distancia_UL1 < distancia_UL2 ){
+    if(desvio_UL1 < desvio_UL2 ){
         timeClient.update();
         String evento = "Entrando";
         String timestamp = timeClient.getFormattedTime();
         Serial.println(timestamp);
         PublishOnNodeRED(evento,timestamp);
     }
-    else if(distancia_UL2 < distancia_UL1){
+    else if(desvio_UL2 < desvio_UL1){
         timeClient.update();
         String evento = "Saindo";
         String timestamp = timeClient.getFormattedTime();

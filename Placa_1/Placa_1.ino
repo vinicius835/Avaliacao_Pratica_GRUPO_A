@@ -27,7 +27,7 @@ const bool Retain_LWT = true;
   // Ultra Sonico 2
 
 int array_distancia_UL1[2];
-int distancia_UL2[2];
+int array_distancia_UL2[2];
 int tempo_UL1[2];
 int tempo_UL2[2];
 bool primeira_vez = true;
@@ -246,4 +246,3 @@ void connectBroker() {
   mqttClient.publish(topico_1, buffer, Retain_LWT);
   Serial.print("Conectado com sucesso!");
 }
-

@@ -1,12 +1,16 @@
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 #include <WiFiUdp.h>
 #include <NTPClient.h>
+
 const String SSID = "Vini@@";
 const String PSWD = "viniciusA";
-const String brokerUrl = "test.mosquitto.org";              
-const int port = 1883;                     
+const String brokerUrl = "114fab7ddbdc46f4a5582af51a52f53f.s1.eu.hivemq.cloud";             
+const char* brokerUser = "Vinicius_Alves9" ;
+const char* brokerPass = "Vinicius_Alves9" ;
+const int port = 8883;                     
 const char* topico_1 = "placas/on/off/vini";
 const char* topico_2 = "vini/topic/placa1/envia";
 
@@ -28,12 +32,12 @@ const bool Retain_LWT = true;
 
 int array_distancia_UL1[2];
 int array_distancia_UL2[2];
-int tempo_UL1[2];
-int tempo_UL2[2];
+unsigned long tempo_UL1 = 0;
+unsigned long tempo_UL2 = 0;
 bool primeira_vez = true;
 //Ultra Sonicos
 
-WiFiClient espClient;
+WiFiClientSecure espClient;
 //WiFi
 
 PubSubClient mqttClient(espClient);
@@ -51,9 +55,11 @@ unsigned long resetor_millis = 0;
 void connectLocalworks();
 void connectBroker();
 void PublishOnNodeRED();
+
 void setup() {
 
 Serial.begin(115200);
+espClient.setInsecure();
 connectLocalworks();
 connectBroker();
 
@@ -72,8 +78,8 @@ pinMode(echo_pin_2, INPUT);
 Serial.println("Ultra Sonico 2 - OK");
 //Ultra Sonico 2
 
-timeClient.begin();
-timeClient.setTimeOffset(-10000);
+// timeClient.begin();
+// timeClient.setTimeOffset(-10000);
 //NPTClient
 
 }
@@ -92,81 +98,130 @@ void loop() {
     connectBroker();
   }
   // Reconexão do Broker
+    float distancia_UL1 = 0;
+    for(int i  = 0; i < 5; i++){                  //Sensor faz uma média de 5 leituras para minimizar os ruídos
+      digitalWrite(trigg_pin_1, LOW); 
+      delayMicroseconds(10);
+      digitalWrite(trigg_pin_1, HIGH); 
+      delayMicroseconds(10);
+      digitalWrite(trigg_pin_1, LOW); 
+      delayMicroseconds(10);
 
-    digitalWrite(trigg_pin_1, LOW); 
-    delayMicroseconds(10);
-    digitalWrite(trigg_pin_1, HIGH); 
-    delayMicroseconds(10);
-    digitalWrite(trigg_pin_1, LOW); 
-    delayMicroseconds(10);
-
-    unsigned long duracao_UL1 = pulseIn(echo_pin_1, HIGH);  
-    int distancia_UL1= ((duracao_UL1 * 340)/2)/10000;
+      unsigned long duracao_UL1 = pulseIn(echo_pin_1, HIGH,30000);  
+      distancia_UL1 += ((duracao_UL1 * 340)/2)/10000;
+    }
+    distancia_UL1 /= 5;
     // Ultra Sonico 1
-
-    digitalWrite(trigg_pin_2, LOW); 
-    delayMicroseconds(10);
-    digitalWrite(trigg_pin_2, HIGH); 
-    delayMicroseconds(10);
-    digitalWrite(trigg_pin_2, LOW); 
-    delayMicroseconds(10);
-
-    unsigned long duracao_UL2 = pulseIn(echo_pin_2, HIGH);  
-    int distancia_UL2= ((duracao_UL2 * 340)/2)/10000;
+    delay(100);
+    float distancia_UL2 = 0;      
+    for(int i  = 0; i < 5; i++){                  //Sensor faz uma média de 5 leituras para minimizar os ruídos
+      digitalWrite(trigg_pin_2, LOW); 
+      delayMicroseconds(10);
+      digitalWrite(trigg_pin_2, HIGH); 
+      delayMicroseconds(10);
+      digitalWrite(trigg_pin_2, LOW); 
+      delayMicroseconds(10);
+      unsigned long duracao_UL2 = pulseIn(echo_pin_2, HIGH,30000);  
+      distancia_UL2 += ((duracao_UL2 * 340)/2)/10000;
+    }
+    distancia_UL2 /= 5;
     // Ultra Sonico 2
+
      if(primeira_vez == true){
       array_distancia_UL1[0] = distancia_UL1;
-      tempo_UL1[0] = millis();
       array_distancia_UL1[1] = array_distancia_UL1[0];
-      tempo_UL1[1] = tempo_UL1[0];
 
       array_distancia_UL2[0] = distancia_UL2;
-      tempo_UL2[0] = millis();
       array_distancia_UL2[1] = array_distancia_UL2[0];
-      tempo_UL2[1] = tempo_UL2[0];
       primeira_vez = false;
     }
     else{
       array_distancia_UL1[1] = array_distancia_UL1[0];
-      tempo_UL1[1] = tempo_UL1[0];
       array_distancia_UL1[0] = distancia_UL1;
-      tempo_UL1[0] = millis();
 
       array_distancia_UL2[1] = array_distancia_UL2[0];
-      tempo_UL2[1] = tempo_UL2[0];
-      array_distancia_UL2[0] = distancia_UL2;
-      tempo_UL2[0] = millis();
+      array_distancia_UL2[0] = distancia_UL2;     
     }
 
-    int tempo_total_UL1 = (tempo_UL1[1] - tempo_UL1[0]);
-    int tempo_total_UL2 = (tempo_UL2[1] - tempo_UL2[0]);
 
-    byte desvio_UL1 = (array_distancia_UL1[1] - array_distancia_UL1[0])/tempo_total_UL1;
-    byte desvio_UL2 = (array_distancia_UL2[1] - array_distancia_UL2[0])/tempo_total_UL2;
+    int desvio_UL1 = abs(array_distancia_UL1[0] - array_distancia_UL1[1]);
+    int desvio_UL2 = abs(array_distancia_UL2[0] - array_distancia_UL2[1]);
 
-    Serial.println("ULTRA SONICO 1");
-    Serial.println(desvio_UL1);
+    int movimento_UL1 = desvio_UL1 > 10;
+    int movimento_UL2 = desvio_UL2 > 10;
 
-    Serial.println("ULTRA SONICO 2");
-    Serial.println(desvio_UL2);
+    Serial.print("Movimento 1: ");
+    Serial.println(movimento_UL1);
+    Serial.print("Movimento 2: ");
+    Serial.println(movimento_UL2);
 
-    if(desvio_UL1 < desvio_UL2 ){
-        timeClient.update();
-        String evento = "Entrando";
-        String timestamp = timeClient.getFormattedTime();
-        Serial.println(timestamp);
-        PublishOnNodeRED(evento,timestamp);
+    //se movimento 1 e não movimento 2 -> pega o tempo
+    if(movimento_UL1 == true && movimento_UL2 == false){
+    tempo_UL1 = millis();
+      //se movimento 2 e não movimento 1 -> pega o tempo
+    }else if(movimento_UL1 == false && movimento_UL2 == true){
+    tempo_UL2 = millis();
     }
-    else if(desvio_UL2 < desvio_UL1){
-        timeClient.update();
-        String evento = "Saindo";
-        String timestamp = timeClient.getFormattedTime();
-        PublishOnNodeRED(evento,timestamp);
-      
+    if(movimento_UL1 && movimento_UL2){
+      Serial.print("Tempo 1: ");
+      Serial.print(tempo_UL1);
+      Serial.print("| Tempo 2: ");
+      Serial.print(tempo_UL2);
+      Serial.print("| Diff: ");
+      Serial.print(tempo_UL2 - tempo_UL1);
+      if(tempo_UL2 - tempo_UL1 > 0){
+        Serial.println("  Entrada");
+      }else{
+        Serial.println("  Saída");
+      }
     }
+    
+
+    // if(tempo_UL1 > tempo_UL2){
+    //   //se tempo1 > tempo 2 -> entrada
+    //     timeClient.update();
+    //     String evento = "Entrando";
+    //     String timestamp = timeClient.getFormattedTime();
+    //     Serial.println(timestamp);
+    //     PublishOnNodeRED(evento,timestamp);
+    //     delay(100);
+    // } else if(tempo_UL2 > tempo_UL1){
+    //   //se tempo2 > tempo1 -> saída
+    //     timeClient.update();
+    //     String evento = "Saindo";
+    //     String timestamp = timeClient.getFormattedTime();
+    //     PublishOnNodeRED(evento,timestamp);
+    //     delay(100);
+    // }
+  
+
+
+
+
+
+
+
+    // if(desvio_UL1 < desvio_UL2 ){
+    //     timeClient.update();
+    //     String evento = "Entrando";
+    //     String timestamp = timeClient.getFormattedTime();
+    //     Serial.println(timestamp);
+    //     PublishOnNodeRED(evento,timestamp);
+    //     delay(100);
+    // }
+    // else if(desvio_UL2 < desvio_UL1){
+    //     timeClient.update();
+    //     String evento = "Saindo";
+    //     String timestamp = timeClient.getFormattedTime();
+    //     PublishOnNodeRED(evento,timestamp);
+    //     delay(100);
+    // }else{
+    //   delay(100);
+    // }
     // Fechar do Publicar no Broker
-
-}   
+    delay(100);
+    mqttClient.loop();
+}  
 // Fechar do Loop
 void connectLocalworks() {
   Serial.println("Iniciando conexão com rede WiFi");
@@ -227,8 +282,8 @@ void connectBroker() {
   while (!mqttClient.connected()) {
     mqttClient.connect(
       userId.c_str(),
-      "",
-      "",
+      brokerUser,
+      brokerPass,
       topico_1,
       LWTQoS,
       Retain_LWT,

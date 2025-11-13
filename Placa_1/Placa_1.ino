@@ -19,7 +19,8 @@ const char* topico_2 = "vini/topic/placa1/envia";
 const String LWTMessage = "Offline";
 const int  LWTQoS = 1;
 const bool Retain_LWT = true;
-
+bool estado_UL1_passou = false;
+bool estado_UL2_passou = false;
 //LWT
 
   const byte trigg_pin_1 = 22;
@@ -78,9 +79,9 @@ pinMode(echo_pin_2, INPUT);
 Serial.println("Ultra Sonico 2 - OK");
 //Ultra Sonico 2
 
-// timeClient.begin();
-// timeClient.setTimeOffset(-10000);
-//NPTClient
+timeClient.begin();
+timeClient.setTimeOffset(-10000);
+// NPTClient
 
 }
 
@@ -112,7 +113,6 @@ void loop() {
     }
     distancia_UL1 /= 5;
     // Ultra Sonico 1
-    delay(100);
     float distancia_UL2 = 0;      
     for(int i  = 0; i < 5; i++){                  //Sensor faz uma média de 5 leituras para minimizar os ruídos
       digitalWrite(trigg_pin_2, LOW); 
@@ -144,11 +144,16 @@ void loop() {
     }
 
 
-    int desvio_UL1 = abs(array_distancia_UL1[0] - array_distancia_UL1[1]);
-    int desvio_UL2 = abs(array_distancia_UL2[0] - array_distancia_UL2[1]);
+    int desvio_UL1 = array_distancia_UL1[0] - array_distancia_UL1[1];
+    int desvio_UL2 = array_distancia_UL2[0] - array_distancia_UL2[1];
+    // Serial.print("desvio_UL1: ");
+    // Serial.println(desvio_UL1);
+    // Serial.print("desvio_UL2: ");
+    // Serial.println(desvio_UL2);
 
-    int movimento_UL1 = desvio_UL1 > 10;
-    int movimento_UL2 = desvio_UL2 > 10;
+    int movimento_UL1 = desvio_UL1 < -20;
+    int movimento_UL2 = desvio_UL2 < -20;
+
 
     Serial.print("Movimento 1: ");
     Serial.println(movimento_UL1);
@@ -157,24 +162,53 @@ void loop() {
 
     //se movimento 1 e não movimento 2 -> pega o tempo
     if(movimento_UL1 == true && movimento_UL2 == false){
-    tempo_UL1 = millis();
-      //se movimento 2 e não movimento 1 -> pega o tempo
+      Serial.println("Entrada!!!!");
+      delay(1000);
     }else if(movimento_UL1 == false && movimento_UL2 == true){
-    tempo_UL2 = millis();
+      Serial.println("Saída!!!!");
+      delay(1000);
     }
-    if(movimento_UL1 && movimento_UL2){
-      Serial.print("Tempo 1: ");
-      Serial.print(tempo_UL1);
-      Serial.print("| Tempo 2: ");
-      Serial.print(tempo_UL2);
-      Serial.print("| Diff: ");
-      Serial.print(tempo_UL2 - tempo_UL1);
-      if(tempo_UL2 - tempo_UL1 > 0){
-        Serial.println("  Entrada");
-      }else{
-        Serial.println("  Saída");
-      }
-    }
+    // if(movimento_UL1 == true && movimento_UL2 == false && estado_UL1_passou == false){
+    // tempo_UL1 = millis();
+    // estado_UL1_passou = true;
+    //   //se movimento 2 e não movimento 1 -> pega o tempo
+    // }else if(movimento_UL1 == false && movimento_UL2 == true && estado_UL2_passou == false){
+    // tempo_UL2 = millis();
+    // estado_UL2_passou = true;
+    // }
+    
+  
+    
+    // if(movimento_UL1 && movimento_UL2){
+    //   Serial.print("Tempo 1: ");
+    //   Serial.print(tempo_UL1);
+    //   Serial.print("| Tempo 2: ");
+    //   Serial.print(tempo_UL2);
+    //   long resultado = (long) tempo_UL2 - (long) tempo_UL1;
+    //   Serial.print("| Diff: ");
+    //   Serial.print(resultado);
+      
+    //   if(resultado > 0){
+    //     Serial.println("  Entrada");
+    //         timeClient.update();
+    //         String evento = "Entrando";
+    //        String timestamp = timeClient.getFormattedTime();
+    //        Serial.println(timestamp);
+    //        PublishOnNodeRED(evento,timestamp);
+    //      estado_UL1_passou = false;
+    //      estado_UL2_passou = false;
+    //     delay(3000);
+    //   }else{
+    //     Serial.println("  Saída");
+    //     timeClient.update();
+    //     String evento = "Saindo";
+    //     String timestamp = timeClient.getFormattedTime();
+    //     PublishOnNodeRED(evento,timestamp);
+    //     estado_UL1_passou = false;
+    //     estado_UL2_passou = false;
+    //     delay(3000);
+    //   }
+
     
 
     // if(tempo_UL1 > tempo_UL2){
@@ -219,7 +253,7 @@ void loop() {
     //   delay(100);
     // }
     // Fechar do Publicar no Broker
-    delay(100);
+    delay(50);
     mqttClient.loop();
 }  
 // Fechar do Loop

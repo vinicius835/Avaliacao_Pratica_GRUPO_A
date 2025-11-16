@@ -159,15 +159,18 @@ void loop() {
     Serial.println(movimento_UL1);
     Serial.print("Movimento 2: ");
     Serial.println(movimento_UL2);
-
+    byte ciclo = 0;
     //se movimento 1 e não movimento 2 -> pega o tempo
-    if(movimento_UL1 == true && movimento_UL2 == false){
+    if(movimento_UL1 == true && movimento_UL2 == false && ciclo > 2){
+      ciclo = 0;
       Serial.println("Entrada!!!!");
       delay(1000);
-    }else if(movimento_UL1 == false && movimento_UL2 == true){
+    }else if(movimento_UL1 == false && movimento_UL2 == true  && ciclo > 2){
+      ciclo = 0;
       Serial.println("Saída!!!!");
       delay(1000);
     }
+    ciclo = ciclo + 1;
     // if(movimento_UL1 == true && movimento_UL2 == false && estado_UL1_passou == false){
     // tempo_UL1 = millis();
     // estado_UL1_passou = true;

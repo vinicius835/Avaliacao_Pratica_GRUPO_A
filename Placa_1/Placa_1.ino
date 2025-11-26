@@ -37,6 +37,14 @@ unsigned long tempo_UL1 = 0;
 unsigned long tempo_UL2 = 0;
 bool primeira_vez = true;
 //Ultra Sonicos
+    const int N = 10;
+
+    float bufferUL1[N];
+    float bufferUL2[N];
+    int idx1 = 0;
+    int idx2 = 0;
+    
+    bool bufferInicializado = false;
 
 WiFiClientSecure espClient;
 //WiFi
@@ -45,7 +53,7 @@ PubSubClient mqttClient(espClient);
 //MQTT
 
 WiFiUDP ntpUDP;
-NTPClient timeClient(ntpUDP, "pool.ntp.org", 3600, 60000);
+NTPClient timeClient(ntpUDP, "pool.ntp.org",  -10800, 60000);
 //NTPClient
 
 unsigned long atual_millis = 0;
@@ -80,7 +88,7 @@ Serial.println("Ultra Sonico 2 - OK");
 //Ultra Sonico 2
 
 timeClient.begin();
-timeClient.setTimeOffset(-10000);
+// timeClient.setTimeOffset(-10000);
 // NPTClient
 
 }
@@ -127,136 +135,81 @@ void loop() {
     distancia_UL2 /= 5;
     // Ultra Sonico 2
 
-     if(primeira_vez == true){
-      array_distancia_UL1[0] = distancia_UL1;
-      array_distancia_UL1[1] = array_distancia_UL1[0];
 
-      array_distancia_UL2[0] = distancia_UL2;
-      array_distancia_UL2[1] = array_distancia_UL2[0];
-      primeira_vez = false;
+
+    bufferUL1[idx1] = distancia_UL1;
+    idx1 = (idx1 + 1) % N;
+    float media1 = 0;
+    for(int i = 0; i <N; i++) media1 += bufferUL1[i];
+    media1 /= N;
+
+    bufferUL2[idx2] = distancia_UL2;
+    idx2 = (idx2 +1) % N;
+
+    float media2 = 0;
+    for(int i = 0; i < N; i++) media2 += bufferUL2[i];
+    media2 /= N;
+
+    if(!bufferInicializado && idx1 == 0 && idx2 == 0){
+      bufferInicializado = true;
+      return;
     }
-    else{
-      array_distancia_UL1[1] = array_distancia_UL1[0];
-      array_distancia_UL1[0] = distancia_UL1;
 
-      array_distancia_UL2[1] = array_distancia_UL2[0];
-      array_distancia_UL2[0] = distancia_UL2;     
+    static float ultimaMedia1 = media1;
+    static float ultimaMedia2 = media2;
+    float desvio_UL1 = media1 - ultimaMedia1;
+    float desvio_UL2 = media2 - ultimaMedia2;
+
+    ultimaMedia1 = media1;
+    ultimaMedia2 = media2;
+
+    int movimento_UL1 = desvio_UL1 < -8;
+    int movimento_UL2 = desvio_UL2 < -8;
+
+    // Serial.print("media1:"); Serial.print(media1);
+    // Serial.print(", media2:"); Serial.print(media2);
+    // Serial.print(", desvio1:"); Serial.print(desvio_UL1);
+    // Serial.print(", desvio2:"); Serial.println(desvio_UL2);
+
+    if(movimento_UL1 == true && movimento_UL2 == false ){
+    tempo_UL1 = millis();
+    estado_UL1_passou = true;
+
+    }else if(movimento_UL1 == false && movimento_UL2 == true ){
+    tempo_UL2 = millis();
+    estado_UL2_passou = true;
     }
-
-
-    int desvio_UL1 = array_distancia_UL1[0] - array_distancia_UL1[1];
-    int desvio_UL2 = array_distancia_UL2[0] - array_distancia_UL2[1];
-    // Serial.print("desvio_UL1: ");
-    // Serial.println(desvio_UL1);
-    // Serial.print("desvio_UL2: ");
-    // Serial.println(desvio_UL2);
-
-    int movimento_UL1 = desvio_UL1 < -20;
-    int movimento_UL2 = desvio_UL2 < -20;
-
-
-    Serial.print("Movimento 1: ");
-    Serial.println(movimento_UL1);
-    Serial.print("Movimento 2: ");
-    Serial.println(movimento_UL2);
-    byte ciclo = 0;
-    //se movimento 1 e não movimento 2 -> pega o tempo
-    if(movimento_UL1 == true && movimento_UL2 == false && ciclo > 2){
-      ciclo = 0;
-      Serial.println("Entrada!!!!");
-      delay(1000);
-    }else if(movimento_UL1 == false && movimento_UL2 == true  && ciclo > 2){
-      ciclo = 0;
-      Serial.println("Saída!!!!");
-      delay(1000);
-    }
-    ciclo = ciclo + 1;
-    // if(movimento_UL1 == true && movimento_UL2 == false && estado_UL1_passou == false){
-    // tempo_UL1 = millis();
-    // estado_UL1_passou = true;
-    //   //se movimento 2 e não movimento 1 -> pega o tempo
-    // }else if(movimento_UL1 == false && movimento_UL2 == true && estado_UL2_passou == false){
-    // tempo_UL2 = millis();
-    // estado_UL2_passou = true;
-    // }
     
   
     
-    // if(movimento_UL1 && movimento_UL2){
-    //   Serial.print("Tempo 1: ");
-    //   Serial.print(tempo_UL1);
-    //   Serial.print("| Tempo 2: ");
-    //   Serial.print(tempo_UL2);
-    //   long resultado = (long) tempo_UL2 - (long) tempo_UL1;
-    //   Serial.print("| Diff: ");
-    //   Serial.print(resultado);
-      
-    //   if(resultado > 0){
-    //     Serial.println("  Entrada");
-    //         timeClient.update();
-    //         String evento = "Entrando";
-    //        String timestamp = timeClient.getFormattedTime();
-    //        Serial.println(timestamp);
-    //        PublishOnNodeRED(evento,timestamp);
-    //      estado_UL1_passou = false;
-    //      estado_UL2_passou = false;
-    //     delay(3000);
-    //   }else{
-    //     Serial.println("  Saída");
-    //     timeClient.update();
-    //     String evento = "Saindo";
-    //     String timestamp = timeClient.getFormattedTime();
-    //     PublishOnNodeRED(evento,timestamp);
-    //     estado_UL1_passou = false;
-    //     estado_UL2_passou = false;
-    //     delay(3000);
-    //   }
+    if(movimento_UL1 && movimento_UL2){
 
-    
+      long resultado = (long) tempo_UL2 - (long) tempo_UL1;
 
-    // if(tempo_UL1 > tempo_UL2){
-    //   //se tempo1 > tempo 2 -> entrada
-    //     timeClient.update();
-    //     String evento = "Entrando";
-    //     String timestamp = timeClient.getFormattedTime();
-    //     Serial.println(timestamp);
-    //     PublishOnNodeRED(evento,timestamp);
-    //     delay(100);
-    // } else if(tempo_UL2 > tempo_UL1){
-    //   //se tempo2 > tempo1 -> saída
-    //     timeClient.update();
-    //     String evento = "Saindo";
-    //     String timestamp = timeClient.getFormattedTime();
-    //     PublishOnNodeRED(evento,timestamp);
-    //     delay(100);
-    // }
-  
+      if(resultado > 0){
+        Serial.println("  Entrada");
+            timeClient.update();
+            String evento = "Entrando";
+           String timestamp = timeClient.getFormattedTime();
+           Serial.println(timestamp);
+           PublishOnNodeRED(evento,timestamp);
+         estado_UL1_passou = false;
+         estado_UL2_passou = false;
+        delay(1000);
+      }else{
+        Serial.println("  Saída");
+        timeClient.update();
+        String evento = "Saindo";
+        String timestamp = timeClient.getFormattedTime();
+        Serial.println(timestamp);
+        PublishOnNodeRED(evento,timestamp);
+        estado_UL1_passou = false;
+        estado_UL2_passou = false;
+        delay(1000);
+      }
+    }
 
-
-
-
-
-
-
-    // if(desvio_UL1 < desvio_UL2 ){
-    //     timeClient.update();
-    //     String evento = "Entrando";
-    //     String timestamp = timeClient.getFormattedTime();
-    //     Serial.println(timestamp);
-    //     PublishOnNodeRED(evento,timestamp);
-    //     delay(100);
-    // }
-    // else if(desvio_UL2 < desvio_UL1){
-    //     timeClient.update();
-    //     String evento = "Saindo";
-    //     String timestamp = timeClient.getFormattedTime();
-    //     PublishOnNodeRED(evento,timestamp);
-    //     delay(100);
-    // }else{
-    //   delay(100);
-    // }
-    // Fechar do Publicar no Broker
-    delay(50);
+    delay(5);
     mqttClient.loop();
 }  
 // Fechar do Loop
@@ -300,7 +253,7 @@ void PublishOnNodeRED(String teste1, String teste2) {
   serializeJson(doc,nodeRED);
 
   mqttClient.publish(topico_2, nodeRED, Retain_LWT);
-  // Serial.print("Enviado ao Node-RED!");
+  Serial.print("Enviado ao Node-RED!");
 }
 
 void connectBroker() {
